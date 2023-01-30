@@ -1,6 +1,5 @@
 import pandas as pd
 import os
-from pathlib import Path
 from datasets import load_dataset
 from huggingface_hub import Repository
 from typing import Any
@@ -14,27 +13,30 @@ HF_TOKEN = os.getenv("HF_TOKEN", None)
 
 def loadResponses():
     #check if file exists
-    if os.path.isfile('response.csv'):
-        df = pd.read_csv('response.csv')
+    if os.path.isfile('responses/response.csv'):
+        df = pd.read_csv('responses/response.csv')
     else:
         df = pd.DataFrame(columns=['response'])
     return df
         
 def saveResponsetoDataset(response):
     # load the dataset
-    repo = Repository(local_dir="data", clone_from="nazneen/rlhf", use_auth_token=HF_TOKEN)
-    if repo.is_repo_clean():
-        print("Repo currently clean. Ignoring push_to_hub")
-    else:
-        # add response to dataset
-        df = loadResponses()
-        df = df.append({'response': response}, ignore_index=True)
-        df.to_csv('response.csv', index=False)
+    repo = Repository(local_dir="responses", clone_from="nazneen/rlhf", use_auth_token=HF_TOKEN, repo_type="dataset")
 
-        with repo.commit(commit_message="LLM response", blocking = False):
-            repo.git_add("response.csv")
-            repo.git_add(auto_lfs_track=True)
-            repo.push_to_hub(force=FORCE_PUSH)
+    repo.git_pull()
+
+    df = loadResponses()
+    #concat response to dataset
+    df = pd.concat([df, pd.DataFrame({'response': [response]})])
+    # save the dataset
+    df.to_csv('responses/response.csv', index=False)
+
+    # with repo.commit(commit_message="LLM response", blocking = False):
+    #     repo.git_add("responses/response.csv")
+    #     repo.git_add(auto_lfs_track=True)
+    repo.git_add("/Users/nazneenrajani/workspace/rlhf/rlhf_langchain/rlhf_langchain/responses/response.csv")
+    repo.git_commit(commit_message="LLM response")
+    repo.git_push()
 
 
 # create a wraper that receives a class called LLMChain or LLM and adda functionality when the function predict is called
